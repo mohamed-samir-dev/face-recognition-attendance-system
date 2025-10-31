@@ -1,34 +1,49 @@
-# Credentials and secrets
-backend/credentials/
-*.json
-!package*.json
-
-# Environment files
-.env
-.env.local
-.env.production
-
 # Dependencies
 node_modules/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.production
 
 # Build outputs
-.next/
 dist/
 build/
+.next/
+
+# Credentials and secrets
+backend/credentials/
+*.json
+!package*.json
+!tsconfig*.json
 
 # AI model files
 *.pkl
 *.h5
 *.model
 
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
+# Temporary files
+*.tmp
+*.temp
