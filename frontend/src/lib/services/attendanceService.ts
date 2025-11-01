@@ -92,6 +92,40 @@ export const getDepartmentStats = async (): Promise<DepartmentStats[]> => {
   });
 };
 
+export const getMonthlyOvertimeHours = async (userId?: string): Promise<number> => {
+  if (!userId) return 0;
+  
+  const currentDate = new Date();
+  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  
+  const attendanceCollection = collection(db, "attendance");
+  const q = query(
+    attendanceCollection,
+    where("userId", "==", userId),
+    where("date", ">=", startOfMonth.toISOString().split('T')[0]),
+    where("date", "<=", endOfMonth.toISOString().split('T')[0])
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    const records = snapshot.docs.map(doc => doc.data() as AttendanceRecord);
+    
+    return records.reduce((total, record) => {
+      if (record.checkIn && record.checkOut) {
+        const checkIn = new Date(`${record.date}T${record.checkIn}`);
+        const checkOut = new Date(`${record.date}T${record.checkOut}`);
+        const hoursWorked = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60);
+        const overtimeHours = Math.max(0, hoursWorked - 8); // Standard 8-hour workday
+        return total + overtimeHours;
+      }
+      return total + (record.overtimeHours || 0);
+    }, 0);
+  } catch {
+    return 0;
+  }
+};
+
 export const getAbsenceReasons = async (): Promise<AbsenceReason[]> => {
   try {
     const leaveRequests = await getLeaveRequests();

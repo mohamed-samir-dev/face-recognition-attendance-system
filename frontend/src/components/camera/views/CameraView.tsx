@@ -5,6 +5,7 @@ import { useAttendance } from "@/hooks/attendance/useAttendance";
 import CameraPreview from "../components/CameraPreview";
 import CameraControls from "../components/CameraControls";
 import EmployeeInfoDisplay from "../components/EmployeeInfoDisplay";
+import AttendanceAlreadyTakenModal from "../AttendanceAlreadyTakenModal";
 import Card from "@/components/common/cards/Card";
 
 export default function CameraContainer() {
@@ -17,7 +18,9 @@ export default function CameraContainer() {
     attemptsRemaining, 
     exhaustedAttempts, 
     multipleFaces, 
-    detecting, 
+    detecting,
+    showAlreadyTakenModal,
+    setShowAlreadyTakenModal,
     processAttendance, 
     resetState, 
     setError 
@@ -111,6 +114,11 @@ export default function CameraContainer() {
         onStartCamera={handleStartCamera}
         onCaptureAndDetect={handleCaptureAndDetect}
         onRetry={handleRetry}
+      />
+      
+      <AttendanceAlreadyTakenModal
+        isOpen={showAlreadyTakenModal}
+        onClose={() => setShowAlreadyTakenModal(false)}
       />
     </Card>
   );

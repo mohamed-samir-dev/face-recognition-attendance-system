@@ -3,8 +3,10 @@ import { useRouter } from "next/navigation";
 import { detectFace } from "@/utils/faceDetection";
 import { compareWithSpecificUser } from "@/lib/services/photoComparisonService";
 import { updateUserSession } from "@/lib/services/sessionService";
+import { checkDailyAttendance, recordDailyAttendance } from "@/lib/services/dailyAttendanceService";
 import { User } from "@/lib/types";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { useWorkTimer } from "@/hooks/attendance/useWorkTimer";
 
 interface Employee {
   id: string;
@@ -31,7 +33,9 @@ export function useAttendance() {
   const [exhaustedAttempts, setExhaustedAttempts] = useState<boolean>(false);
   const [multipleFaces, setMultipleFaces] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [showAlreadyTakenModal, setShowAlreadyTakenModal] = useState(false);
   const { user } = useAuth();
+  const { startTimer } = useWorkTimer(user?.id);
   const router = useRouter();
 
   const processAttendance = async (imageData: string, stopCamera: () => void) => {
@@ -71,6 +75,8 @@ export function useAttendance() {
         return;
       }
       
+
+      
       // Compare captured image with current user's photo in Firebase
       const matchedUser = await compareWithSpecificUser(imageData, currentUser.numericId);
       
@@ -91,7 +97,11 @@ export function useAttendance() {
         setAttendanceMarked(true);
         stopCamera();
         
+        // Record attendance in Firebase
+        await recordDailyAttendance(matchedUser.id, matchedUser.name);
+        
         await updateUserSession(matchedUser.id);
+        await startTimer();
         
         if (typeof window !== "undefined") {
           const currentHours = parseInt(localStorage.getItem("totalHoursWorked") || "0");
@@ -147,6 +157,7 @@ export function useAttendance() {
         const newAttempts = attemptsRemaining - 1;
         setAttemptsRemaining(newAttempts);
         
+        
         if (newAttempts === 0) {
           setExhaustedAttempts(true);
           stopCamera();
@@ -186,6 +197,8 @@ export function useAttendance() {
     exhaustedAttempts,
     multipleFaces,
     detecting,
+    showAlreadyTakenModal,
+    setShowAlreadyTakenModal,
     processAttendance,
     resetState,
     setError

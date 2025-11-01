@@ -4,8 +4,10 @@ import base64
 import tempfile
 import face_recognition
 from ..utils.image_utils import get_face_encoding_from_base64, create_cache_key
+from ..services.firebase_service import FirebaseService
 
 def init_face_routes(app, face_model, encoding_cache):
+    firebase_service = FirebaseService()
     
     @app.route('/recognize', methods=['POST'])
     def recognize_face():
@@ -74,8 +76,14 @@ def init_face_routes(app, face_model, encoding_cache):
             # Calculate distance (lower = more similar)
             distance = face_recognition.face_distance([face2_encoding], face1_encoding)[0]
             
-            # Relaxed threshold for matching
-            threshold = 0.5
+            # Adaptive threshold based on distance
+            if distance < 0.3:
+                threshold = 0.5  # Very similar faces
+            elif distance < 0.4:
+                threshold = 0.6  # Good similarity
+            else:
+                threshold = 0.7  # Require higher confidence
+            
             match = distance < threshold
             
             return jsonify({

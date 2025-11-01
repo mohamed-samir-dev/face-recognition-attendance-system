@@ -94,7 +94,7 @@ export default function AdminTopBar({
         </div>
 
         <Image
-          src={user.image}
+          src={user.image.trimEnd()}
           alt={user.name}
           width={32}
           height={32}

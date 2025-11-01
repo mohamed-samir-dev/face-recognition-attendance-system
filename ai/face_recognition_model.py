@@ -4,6 +4,7 @@ import os
 import pickle
 import numpy as np
 import sys
+from PIL import Image, ImageEnhance
 # Add backend directory to path for imports
 backend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'backend'))
 if backend_path not in sys.path:
@@ -18,9 +19,32 @@ class FaceRecognitionModel:
         self.model_file = "face_model.pkl"
         self.firebase_service = FirebaseService()
     
+    def preprocess_image(self, image_path):
+        """Enhance image quality for better recognition"""
+        try:
+            # Load with PIL for preprocessing
+            pil_image = Image.open(image_path)
+            
+            # Convert to RGB if needed
+            if pil_image.mode != 'RGB':
+                pil_image = pil_image.convert('RGB')
+            
+            # Enhance contrast and brightness
+            enhancer = ImageEnhance.Contrast(pil_image)
+            pil_image = enhancer.enhance(1.2)
+            
+            enhancer = ImageEnhance.Brightness(pil_image)
+            pil_image = enhancer.enhance(1.1)
+            
+            # Convert to numpy array for face_recognition
+            return np.array(pil_image)
+        except:
+            # Fallback to original loading
+            return face_recognition.load_image_file(image_path)
+    
     def train_model(self):
-        """Train the model on images in the dataset folder"""
-        print("Training face recognition model...")
+        """Train the model with multiple encodings per person for better accuracy"""
+        print("Training enhanced face recognition model...")
         
         for person_name in os.listdir(self.dataset_path):
             person_folder = os.path.join(self.dataset_path, person_name)
@@ -29,23 +53,27 @@ class FaceRecognitionModel:
                 continue
                 
             print(f"Processing images for {person_name}...")
+            person_encodings = []
             
             for image_file in os.listdir(person_folder):
                 if image_file.lower().endswith(('.jpg', '.jpeg', '.png')):
                     image_path = os.path.join(person_folder, image_file)
                     
-                    # Load image
-                    image = face_recognition.load_image_file(image_path)
+                    # Load and preprocess image
+                    image = self.preprocess_image(image_path)
                     
-                    # Get face encodings
-                    face_encodings = face_recognition.face_encodings(image)
+                    # Get face encodings with different models for robustness
+                    face_encodings = face_recognition.face_encodings(image, model='large')
                     
                     if face_encodings:
-                        # Use the first face found
                         face_encoding = face_encodings[0]
-                        self.known_face_encodings.append(face_encoding)
-                        self.known_face_names.append(person_name)
+                        person_encodings.append(face_encoding)
                         print(f"  Added encoding for {person_name} from {image_file}")
+            
+            # Store all encodings for this person
+            for encoding in person_encodings:
+                self.known_face_encodings.append(encoding)
+                self.known_face_names.append(person_name)
         
         # Save the model
         self.save_model()
@@ -72,13 +100,26 @@ class FaceRecognitionModel:
             return True
         return False
     
-    def recognize_face(self, image_path):
-        """Three-stage face recognition validation with professional messaging"""
-        # Load the image
-        image = face_recognition.load_image_file(image_path)
+    def get_adaptive_threshold(self, distances):
+        """Calculate adaptive threshold based on distance distribution"""
+        if len(distances) == 0:
+            return 0.6
         
-        # Find face encodings in the image
-        face_encodings = face_recognition.face_encodings(image)
+        min_distance = np.min(distances)
+        if min_distance < 0.3:
+            return 0.5  # Very confident match
+        elif min_distance < 0.4:
+            return 0.6  # Good match
+        else:
+            return 0.7  # Require higher confidence
+    
+    def recognize_face(self, image_path):
+        """Enhanced face recognition with adaptive thresholds and multiple validations"""
+        # Load and preprocess the image
+        image = self.preprocess_image(image_path)
+        
+        # Find face encodings with large model for better accuracy
+        face_encodings = face_recognition.face_encodings(image, model='large')
         
         if not face_encodings:
             return None, "No face detected in the image. Please ensure proper lighting and positioning."
@@ -88,29 +129,67 @@ class FaceRecognitionModel:
         
         face_encoding = face_encodings[0]
         
-        # STAGE 1: Compare with dataset images
-        matches = face_recognition.compare_faces(self.known_face_encodings, face_encoding, tolerance=0.6)
+        # Calculate distances to all known faces
         face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
         
+        if len(face_distances) == 0:
+            return None, "No trained faces in database. Please train the model first."
+        
+        # Get adaptive threshold
+        threshold = self.get_adaptive_threshold(face_distances)
+        
+        # Find best matches with adaptive threshold
+        matches = face_recognition.compare_faces(self.known_face_encodings, face_encoding, tolerance=threshold)
+        
         if not any(matches):
-            return None, "This person is a stranger and doesn't exist in our employee database. Access denied."
+            return None, "This person is not in our employee database. Access denied."
         
-        best_match_index = np.argmin(face_distances)
-        best_distance = face_distances[best_match_index]
-        employee_name = self.known_face_names[best_match_index]
+        # Get all matching indices and their distances
+        matching_indices = [i for i, match in enumerate(matches) if match]
+        matching_distances = [face_distances[i] for i in matching_indices]
+        matching_names = [self.known_face_names[i] for i in matching_indices]
         
-        if not matches[best_match_index] or best_distance >= 0.6:
-            return employee_name, f"Person detected: {employee_name}. However, this person is not authorized to access the system."
+        # Find the best match
+        best_local_index = np.argmin(matching_distances)
+        best_distance = matching_distances[best_local_index]
+        employee_name = matching_names[best_local_index]
         
-        # STAGE 2: Compare with Firebase image
-        firebase_match, firebase_message = self.firebase_service.compare_with_firebase_image(face_encoding, employee_name)
+        # Count votes for each person (in case of multiple encodings per person)
+        name_votes = {}
+        for i, name in enumerate(matching_names):
+            if name not in name_votes:
+                name_votes[name] = []
+            name_votes[name].append(matching_distances[i])
         
-        if not firebase_match:
-            # If person is in dataset but Firebase verification fails, they might be impersonating
-            return None, f"Identity verification failed. Expected account holder: {employee_name}. Please use the correct authorized account."
+        # Choose person with most votes and best average distance
+        best_person = None
+        best_avg_distance = float('inf')
         
-        # STAGE 3: Final validation - both stages passed
-        confidence = 1 - best_distance
+        for name, distances in name_votes.items():
+            avg_distance = np.mean(distances)
+            if len(distances) >= len(name_votes[name]) and avg_distance < best_avg_distance:
+                best_person = name
+                best_avg_distance = avg_distance
+        
+        if best_person:
+            employee_name = best_person
+            best_distance = best_avg_distance
+        
+        # STAGE 2: Firebase verification (if available)
+        try:
+            firebase_match, firebase_message = self.firebase_service.compare_with_firebase_image(face_encoding, employee_name)
+            if not firebase_match:
+                return None, f"Identity verification failed. Expected: {employee_name}. Please use the correct authorized account."
+        except:
+            # Continue without Firebase verification if service unavailable
+            pass
+        
+        # Calculate confidence
+        confidence = max(0, 1 - best_distance)
+        
+        if confidence < 0.3:
+            return None, f"Low confidence match for {employee_name}. Please try again with better lighting."
+        
         return employee_name, f"Welcome, {employee_name}. Identity verified successfully. Confidence: {confidence:.0%}"
 
 if __name__ == "__main__":

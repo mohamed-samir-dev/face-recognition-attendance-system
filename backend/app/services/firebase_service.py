@@ -5,6 +5,7 @@ import face_recognition
 import numpy as np
 from PIL import Image
 import io
+from datetime import datetime
 
 class FirebaseService:
     def __init__(self):
@@ -78,11 +79,53 @@ class FirebaseService:
             # Compare encodings
             distance = face_recognition.face_distance([firebase_encodings[0]], captured_image_encoding)[0]
             
-            # Relaxed threshold for Firebase comparison
-            if distance < 0.5:
+            # More relaxed threshold for Firebase comparison
+            if distance < 0.6:
                 return True, f"Firebase match confirmed (distance: {distance:.3f})"
             else:
                 return False, f"Firebase image mismatch (distance: {distance:.3f})"
                 
         except Exception as e:
             return False, f"Error comparing with Firebase: {e}"
+    
+    def check_daily_attendance(self, employee_id):
+        """Check if employee has already taken attendance today"""
+        if not self.firebase_enabled or self.db is None:
+            return False, "Firebase disabled"
+            
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            attendance_ref = self.db.collection('attendance')
+            query = attendance_ref.where('userId', '==', employee_id).where('date', '==', today)
+            docs = query.get()
+            
+            if docs:
+                return True, "Attendance already taken today"
+            return False, "No attendance found for today"
+            
+        except Exception as e:
+            return False, f"Error checking attendance: {e}"
+    
+    def record_attendance(self, employee_id, employee_name):
+        """Record attendance for employee"""
+        if not self.firebase_enabled or self.db is None:
+            return False, "Firebase disabled"
+            
+        try:
+            today = datetime.now().strftime('%Y-%m-%d')
+            current_time = datetime.now().strftime('%H:%M:%S')
+            
+            attendance_data = {
+                'userId': employee_id,
+                'employeeName': employee_name,
+                'date': today,
+                'checkIn': current_time,
+                'status': 'Present',
+                'timestamp': datetime.now()
+            }
+            
+            self.db.collection('attendance').add(attendance_data)
+            return True, "Attendance recorded successfully"
+            
+        except Exception as e:
+            return False, f"Error recording attendance: {e}"
