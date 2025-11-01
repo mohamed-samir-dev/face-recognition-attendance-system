@@ -41,26 +41,51 @@ export async function checkDailyAttendance(userId: string): Promise<{
 export async function recordDailyAttendance(userId: string, userName: string): Promise<{
   success: boolean;
   message: string;
+  isLate?: boolean;
 }> {
   try {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const currentTime = now.toTimeString().split(' ')[0];
     
+    // Determine status based on check-in time
+    const { getCompanySettings } = await import('./settingsService');
+    const settings = await getCompanySettings();
+    const workStartTime = settings.workingHours.startTime;
+    const gracePeriod = settings.attendanceRules?.gracePeriod || 15;
+    
+    const workStart = new Date(`${today}T${workStartTime}:00`);
+    const checkInTime = new Date(`${today}T${currentTime}`);
+    const graceEndTime = new Date(workStart.getTime() + gracePeriod * 60 * 1000);
+    
+    let status = 'Present';
+    if (checkInTime > graceEndTime) {
+      status = 'Late';
+      console.log('Late arrival detected:', {
+        checkInTime: currentTime,
+        workStartTime,
+        gracePeriod,
+        graceEndTime: graceEndTime.toTimeString()
+      });
+    }
+    
     const attendanceData = {
       userId,
       employeeName: userName,
       date: today,
       checkIn: currentTime,
-      status: 'Present',
-      timestamp: now
+      status,
+      timestamp: now,
+      workedHours: 0 // Will be updated when timer completes
     };
     
     await addDoc(collection(db, "attendance"), attendanceData);
+    console.log('Attendance recorded:', attendanceData);
     
     return {
       success: true,
-      message: "Attendance recorded successfully"
+      message: "Attendance recorded successfully",
+      isLate: status === 'Late'
     };
     
   } catch (error) {

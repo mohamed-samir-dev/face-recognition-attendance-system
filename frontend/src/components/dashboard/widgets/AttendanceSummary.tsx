@@ -4,8 +4,10 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { SummaryCardProps } from "@/lib/types";
 import { useLeaveDays } from "@/hooks/leave/useLeaveDays";
 import { useWorkTimer } from "@/hooks/attendance/useWorkTimer";
+import { getMonthlyLateArrivals } from "@/lib/services/attendanceService";
+import Toast from "@/components/common/feedback/Toast";
 import AbsenceRequestsCard from "./AbsenceRequestsCard";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function SummaryCard({
   title,
@@ -56,6 +58,26 @@ export default function AttendanceSummary() {
     user?.numericId?.toString()
   );
   const { timeRemaining, isActive, totalHours } = useWorkTimer(user?.id);
+  const [lateArrivals, setLateArrivals] = useState<number>(0);
+  const [showLateToast, setShowLateToast] = useState(false);
+
+  useEffect(() => {
+    if (user?.id) {
+      getMonthlyLateArrivals(user.id).then(count => {
+        console.log('Late arrivals count:', count);
+        setLateArrivals(count);
+      });
+      
+      // Check if user should see late toast
+      const shouldShowLateToast = localStorage.getItem('showLateToast');
+      if (shouldShowLateToast === 'true') {
+        setShowLateToast(true);
+        localStorage.removeItem('showLateToast');
+      }
+    }
+  }, [user?.id]);
+  
+
 
   // Debug logging
   useEffect(() => {
@@ -64,8 +86,9 @@ export default function AttendanceSummary() {
       isActive,
       totalHours,
       userId: user?.id,
+      lateArrivals
     });
-  }, [timeRemaining, isActive, totalHours, user?.id]);
+  }, [timeRemaining, isActive, totalHours, user?.id, lateArrivals]);
 
   return (
     <div className="mb-8">
@@ -75,7 +98,7 @@ export default function AttendanceSummary() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <SummaryCard
           title="Total Hours Worked"
-          value={`${totalHours}h`}
+          value={`${Math.round(totalHours * 100) / 100}h`}
           timer={isActive ? timeRemaining : undefined}
           icon={<Clock className="w-5 h-5" />}
         />
@@ -88,6 +111,7 @@ export default function AttendanceSummary() {
 
         <SummaryCard
           title="Late Arrivals"
+          value={`${lateArrivals} days`}
           color="yellow"
           icon={<AlertTriangle className="w-5 h-5" />}
         />
@@ -99,6 +123,14 @@ export default function AttendanceSummary() {
         />
       </div>
       <AbsenceRequestsCard />
+      
+      <Toast
+        message="Late Arrival Notice: Your tardiness has been recorded and may impact your salary and performance evaluation. Please ensure punctual attendance."
+        type="warning"
+        isVisible={showLateToast}
+        onClose={() => setShowLateToast(false)}
+        duration={8000}
+      />
     </div>
   );
 }

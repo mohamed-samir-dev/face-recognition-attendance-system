@@ -126,6 +126,38 @@ export const getMonthlyOvertimeHours = async (userId?: string): Promise<number> 
   }
 };
 
+export const getMonthlyLateArrivals = async (userId?: string): Promise<number> => {
+  if (!userId) return 0;
+  
+  const currentDate = new Date();
+  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  const startDateStr = startOfMonth.toISOString().split('T')[0];
+  const endDateStr = endOfMonth.toISOString().split('T')[0];
+  
+  const attendanceCollection = collection(db, "attendance");
+  const q = query(
+    attendanceCollection,
+    where("userId", "==", userId)
+  );
+  
+  try {
+    const snapshot = await getDocs(q);
+    const lateRecords = snapshot.docs
+      .map(doc => doc.data() as AttendanceRecord)
+      .filter(record => 
+        record.status === "Late" &&
+        record.date >= startDateStr &&
+        record.date <= endDateStr
+      );
+    
+    return lateRecords.length;
+  } catch (error) {
+    console.error('Error fetching late arrivals:', error);
+    return 0;
+  }
+};
+
 export const getAbsenceReasons = async (): Promise<AbsenceReason[]> => {
   try {
     const leaveRequests = await getLeaveRequests();

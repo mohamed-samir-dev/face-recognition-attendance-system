@@ -11,11 +11,19 @@ def init_face_routes(app, face_model, encoding_cache):
     
     @app.route('/recognize', methods=['POST'])
     def recognize_face():
+        """Recognize face with mandatory user validation for attendance restriction"""
         try:
             data = request.get_json()
             
             if 'image' not in data:
                 return jsonify({'error': 'No image provided'}), 400
+            
+            # SECURITY: expected_user is now mandatory for attendance system
+            expected_user = data.get('expected_user')
+            if not expected_user:
+                return jsonify({
+                    'error': 'Expected user must be specified for attendance validation'
+                }), 400
             
             # Decode base64 image
             image_data = data['image'].split(',')[1]  # Remove data:image/jpeg;base64, prefix
@@ -27,19 +35,21 @@ def init_face_routes(app, face_model, encoding_cache):
                 temp_path = temp_file.name
             
             try:
-                # Recognize face
-                name, message = face_model.recognize_face(temp_path)
+                # Recognize face with mandatory expected user validation
+                name, message = face_model.recognize_face(temp_path, expected_user)
                 
                 if name:
                     return jsonify({
                         'success': True,
                         'name': name,
-                        'message': message
+                        'message': message,
+                        'validated_user': expected_user
                     })
                 else:
                     return jsonify({
                         'success': False,
-                        'message': message
+                        'message': message,
+                        'expected_user': expected_user
                     })
             
             finally:
@@ -53,7 +63,7 @@ def init_face_routes(app, face_model, encoding_cache):
     def compare_faces():
         if request.method == 'OPTIONS':
             return '', 200
-        """Compare two face images and return similarity - optimized version"""
+        """Compare captured face with specific user's stored photo - used for attendance restriction"""
         try:
             data = request.get_json()
             
@@ -76,14 +86,8 @@ def init_face_routes(app, face_model, encoding_cache):
             # Calculate distance (lower = more similar)
             distance = face_recognition.face_distance([face2_encoding], face1_encoding)[0]
             
-            # Adaptive threshold based on distance
-            if distance < 0.3:
-                threshold = 0.5  # Very similar faces
-            elif distance < 0.4:
-                threshold = 0.6  # Good similarity
-            else:
-                threshold = 0.7  # Require higher confidence
-            
+            # STRICT threshold to prevent cross-employee fraud
+            threshold = 0.45
             match = distance < threshold
             
             return jsonify({

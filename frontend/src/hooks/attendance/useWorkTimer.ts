@@ -32,11 +32,13 @@ export const useWorkTimer = (userId?: string) => {
         
         const snapshot = await getDocs(attendanceQuery);
         if (!snapshot.empty) {
-          // User has attendance today, start timer
+          // User has attendance today, start timer with calculated duration
           await startWorkTimer(userId);
-          const eightHours = 8 * 60 * 60 * 1000;
-          setTimeRemaining(eightHours);
-          setIsActive(true);
+          const updatedTimerData = await getTimerData(userId);
+          if (updatedTimerData) {
+            setTimeRemaining(updatedTimerData.remaining);
+            setIsActive(true);
+          }
         }
       }
     };
@@ -73,9 +75,11 @@ export const useWorkTimer = (userId?: string) => {
     if (!userId) return;
     
     await startWorkTimer(userId);
-    const eightHours = 8 * 60 * 60 * 1000;
-    setTimeRemaining(eightHours);
-    setIsActive(true);
+    const timerData = await getTimerData(userId);
+    if (timerData) {
+      setTimeRemaining(timerData.remaining);
+      setIsActive(true);
+    }
   };
 
   const formatTime = (ms: number) => {

@@ -1,5 +1,6 @@
 import { doc, setDoc, getDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
+import { getCompanySettings } from "./settingsService";
 
 export interface TimerData {
   userId: string;
@@ -7,6 +8,8 @@ export interface TimerData {
   remaining: number;
   active: boolean;
   totalHours: number;
+  actualWorkedHours?: number;
+  checkInTime?: string;
 }
 
 class LocalTimer {
@@ -48,13 +51,29 @@ class LocalTimer {
 export const localTimer = new LocalTimer();
 
 export const startWorkTimer = async (userId: string): Promise<void> => {
-  const eightHours = 8*60* 60 * 1000;
+  const now = new Date();
+  const checkInTime = now.toTimeString().split(' ')[0]; // HH:MM:SS format
+  
+  // Get working hours from settings
+  const settings = await getCompanySettings();
+  const { startTime: workStartTime, endTime: workEndTime } = settings.workingHours;
+  
+  // Calculate timer duration based on check-in time
+  const workStart = new Date(`${now.toDateString()} ${workStartTime}:00`);
+  const workEnd = new Date(`${now.toDateString()} ${workEndTime}:00`);
+  const checkIn = new Date(`${now.toDateString()} ${checkInTime}`);
+  
+  // Timer duration = end of working hours - actual check-in time
+  const timerDuration = Math.max(0, workEnd.getTime() - checkIn.getTime());
+  
   const timerData: TimerData = {
     userId,
     startTime: Date.now(),
-    remaining: eightHours,
+    remaining: timerDuration,
     active: true,
-    totalHours: 0
+    totalHours: 0,
+    checkInTime,
+    actualWorkedHours: 0
   };
 
   const existingData = await getTimerData(userId);
@@ -82,13 +101,47 @@ export const calculateRemainingTime = (timerData: TimerData): number => {
 
 export const completeTimer = async (userId: string): Promise<void> => {
   const timerData = await getTimerData(userId);
-  if (!timerData) return;
+  if (!timerData || !timerData.checkInTime) return;
+
+  // Calculate actual worked hours
+  const now = new Date();
+  const checkInTime = new Date(`${now.toDateString()} ${timerData.checkInTime}`);
+  const actualWorkedMs = now.getTime() - checkInTime.getTime();
+  const actualWorkedHours = actualWorkedMs / (1000 * 60 * 60);
 
   await updateDoc(doc(db, "timers", userId), {
     active: false,
-    totalHours: timerData.totalHours + 8,
+    totalHours: timerData.totalHours + actualWorkedHours,
+    actualWorkedHours,
     remaining: 0
   });
+
+  // Update attendance record with actual worked hours
+  await updateAttendanceWithWorkedHours(userId, actualWorkedHours);
+};
+
+const updateAttendanceWithWorkedHours = async (userId: string, workedHours: number): Promise<void> => {
+  try {
+    const { collection, query, where, getDocs, updateDoc: updateFirestoreDoc, doc: firestoreDoc } = await import('firebase/firestore');
+    const today = new Date().toISOString().split('T')[0];
+    
+    const attendanceQuery = query(
+      collection(db, 'attendance'),
+      where('userId', '==', userId),
+      where('date', '==', today)
+    );
+    
+    const snapshot = await getDocs(attendanceQuery);
+    if (!snapshot.empty) {
+      const attendanceDoc = snapshot.docs[0];
+      await updateFirestoreDoc(firestoreDoc(db, 'attendance', attendanceDoc.id), {
+        workedHours: Math.round(workedHours * 100) / 100, // Round to 2 decimal places
+        checkOut: new Date().toTimeString().split(' ')[0]
+      });
+    }
+  } catch (error) {
+    console.error('Error updating attendance with worked hours:', error);
+  }
 };
 
 export const stopTimer = async (userId: string): Promise<void> => {
@@ -111,6 +164,25 @@ export const resetTimer = async (userId: string): Promise<void> => {
   await updateDoc(doc(db, "timers", userId), {
     active: false,
     remaining: 0,
-    totalHours: 0
+    totalHours: 0,
+    actualWorkedHours: 0,
+    checkInTime: undefined
   });
+};
+
+export const getTimerInfo = async (userId: string) => {
+  const timerData = await getTimerData(userId);
+  if (!timerData || !timerData.checkInTime) return null;
+  
+  const now = new Date();
+  const checkInTime = new Date(`${now.toDateString()} ${timerData.checkInTime}`);
+  const elapsed = now.getTime() - checkInTime.getTime();
+  const elapsedHours = elapsed / (1000 * 60 * 60);
+  
+  return {
+    checkInTime: timerData.checkInTime,
+    elapsedHours: Math.round(elapsedHours * 100) / 100,
+    remainingMs: timerData.remaining,
+    isActive: timerData.active
+  };
 };

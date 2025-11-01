@@ -34,6 +34,7 @@ export function useAttendance() {
   const [multipleFaces, setMultipleFaces] = useState(false);
   const [detecting, setDetecting] = useState(false);
   const [showAlreadyTakenModal, setShowAlreadyTakenModal] = useState(false);
+
   const { user } = useAuth();
   const { startTimer } = useWorkTimer(user?.id);
   const router = useRouter();
@@ -68,16 +69,17 @@ export function useAttendance() {
         return;
       }
       
-      // Get current user ID from session/page
-      const currentUser = recognizedUser || user;
+      // Get current user ID from session - only the logged-in user can mark attendance
+      const currentUser = user; // Only use the authenticated user, not any recognized user
       if (!currentUser?.numericId) {
-        setError("User ID not found. Please login again.");
+        setError("User session not found. Please login again.");
         return;
       }
       
-
+      console.log(`SECURITY: Attendance restricted to logged-in user: ${currentUser.name} (ID: ${currentUser.numericId})`);
       
-      // Compare captured image with current user's photo in Firebase
+      // SECURITY: Compare captured image with ONLY the logged-in user's photo in Firebase
+      // This ensures no other user's image from Firebase can be used for comparison
       const matchedUser = await compareWithSpecificUser(imageData, currentUser.numericId);
       
       if (matchedUser) {
@@ -98,7 +100,12 @@ export function useAttendance() {
         stopCamera();
         
         // Record attendance in Firebase
-        await recordDailyAttendance(matchedUser.id, matchedUser.name);
+        const attendanceResult = await recordDailyAttendance(matchedUser.id, matchedUser.name);
+        
+        // Store late status for dashboard notification
+        if (attendanceResult.isLate) {
+          localStorage.setItem('showLateToast', 'true');
+        }
         
         await updateUserSession(matchedUser.id);
         await startTimer();
@@ -115,48 +122,20 @@ export function useAttendance() {
 
         // Verification successful - result is pinned, no redirect
       } else {
-        // Try face recognition API to get the detected person's name
-        try {
-          const response = await fetch("http://localhost:5001/recognize", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ image: imageData })
-          });
-          
-          if (response.ok) {
-            // const result = await response.json();
-            // const detectedName = result.name || "Unknown Person";
-            const expectedName = currentUser.name || currentUser.username || "Expected User";
-            
-            setRecognizedEmployee({
-              id: "unauthorized",
-              name: `I expected ${expectedName}, but he didn't appeared`,
-              email: "",
-              department: "",
-              position: ""
-            });
-          } else {
-            setRecognizedEmployee({
-              id: "unknown",
-              name: "Unknown Person",
-              email: "",
-              department: "",
-              position: ""
-            });
-          }
-        } catch {
-          setRecognizedEmployee({
-            id: "unknown",
-            name: "Unknown Person",
-            email: "",
-            department: "",
-            position: ""
-          });
-        }
+        // Access denied - only the logged-in user can mark attendance
+        const expectedName = currentUser.name || currentUser.username || "Expected User";
+        setRecognizedEmployee({
+          id: "unauthorized",
+          name: `Access Denied - Account Holder Only`,
+          email: "",
+          department: "",
+          position: ""
+        });
         
         const newAttempts = attemptsRemaining - 1;
         setAttemptsRemaining(newAttempts);
         
+        console.log(`Unauthorized attendance attempt. Expected: ${expectedName}, but face did not match.`);
         
         if (newAttempts === 0) {
           setExhaustedAttempts(true);
@@ -165,7 +144,7 @@ export function useAttendance() {
             router.push("/login");
           }, 3000);
         } else {
-          setError("Identity verification failed. This person is not authorized to access the system.");
+          setError(`Only ${expectedName} can mark attendance on this account. Please ensure the correct person is using this session.`);
         }
       }
     } catch (error) {
