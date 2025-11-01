@@ -101,7 +101,7 @@ async function comparePhotos(capturedImage: string, firebaseImage: string): Prom
       return false;
     }
   } catch (error) {
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       console.error("Photo comparison timed out");
     } else {
       console.error("Photo comparison error:", error);

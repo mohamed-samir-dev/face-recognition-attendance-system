@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import DepartmentManagement from './DepartmentManagement';
-import UserDepartmentAssignment from '../employee-management/UserDepartmentAssignment';
+import UserDepartmentAssignmentView from '../employee-management/views/UserDepartmentAssignmentView';
 import DepartmentAnalytics from './DepartmentAnalytics';
 import { LoadingState, PageHeader, useDepartmentsContent } from './content';
 
@@ -32,7 +32,7 @@ export default function DepartmentsContent() {
           onDepartmentsChange={fetchSettings}
         />
 
-        <UserDepartmentAssignment 
+        <UserDepartmentAssignmentView 
           onAssignmentChange={fetchSettings}
         />
       </div>

@@ -3,7 +3,7 @@
 import { LoginForm } from "../forms";
 import { AuthDivider } from "../common";
 import { FacialRecognitionButton } from "../facial-recognition";
-import Card from "@/components/common/Card";
+import Card from "@/components/common/cards/Card";
 import { LoginContainerProps } from "@/lib/types";
 
 export default function LoginContainer({

@@ -1,8 +1,8 @@
 "use client";
 
-import { useDashboard } from "@/hooks/useDashboard";
-import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import DashboardContent from "@/components/dashboard/DashboardContent";
+import { useDashboard } from "@/hooks/ui/useDashboard";
+import DashboardLayout from "@/components/dashboard/layout/DashboardLayout";
+import DashboardContent from "@/components/dashboard/layout/DashboardContent";
 
 export default function DashboardPage() {
   const {

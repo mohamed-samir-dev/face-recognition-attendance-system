@@ -1,7 +1,7 @@
-export { default as AddDepartmentForm } from './AddDepartmentForm';
-export { default as DepartmentList } from './DepartmentList';
-export { default as EditDepartmentModal } from './EditDepartmentModal';
-export { default as DeleteConfirmModal } from './DeleteConfirmModal';
-export { default as SuccessMessage } from './SuccessMessage';
-export { useDepartmentManagement } from './useDepartmentManagement';
-export type { NewDepartment } from './useDepartmentManagement';
+export { default as AddDepartmentForm } from './forms/AddDepartmentForm';
+export { default as DepartmentList } from './components/DepartmentList';
+export { default as EditDepartmentModal } from './modals/EditDepartmentModal';
+export { default as DeleteConfirmModal } from './modals/DeleteConfirmModal';
+export { default as SuccessMessage } from './components/SuccessMessage';
+export { useDepartmentManagement } from './hooks/useDepartmentManagement';
+export type { NewDepartment } from './hooks/useDepartmentForm';

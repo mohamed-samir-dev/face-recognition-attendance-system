@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import CameraLayout from "@/components/camera/CameraLayout";
-import CameraContainer from "@/components/camera/CameraContainer";
+import { useAuth } from "@/hooks/auth/useAuth";
+import CameraLayout from "@/components/camera/layouts/CameraLayout";
+import CameraContainer from "@/components/camera/views/CameraView";
 
 export default function CameraPage() {
   const { user, mounted } = useAuth();

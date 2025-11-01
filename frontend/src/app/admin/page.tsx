@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { useLeaveRequests } from "@/hooks/useLeaveRequests";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useLeaveRequests } from "@/hooks/leave/useLeaveRequests";
 import NavigationBlocker from "@/components/NavigationBlocker";
-import AdminSidebar from "@/components/layout/AdminSidebar";
-import AdminTopBar from "@/components/layout/AdminTopBar";
-import DashboardContent from "@/components/admin/dashboard/DashboardContent";
-import AttendanceContent from "@/components/admin/attendance/AttendanceContent";
-import LeavesContent from "@/components/admin/attendance/LeavesContent";
+import AdminSidebar from "@/components/layout/admin/AdminSidebar";
+import AdminTopBar from "@/components/layout/admin/AdminTopBar";
+import DashboardContent from "@/components/admin/dashboard/content/DashboardContent";
+import AttendanceContent from "@/components/admin/attendance/content/AttendanceContent";
+import LeavesContent from "@/components/admin/attendance/content/LeavesContent";
 import ReportsContent from "@/components/admin/reports/ReportsContent";
-import UserManagementContent from "@/components/admin/employee-management/UserManagementContent";
-import SettingsContent from "@/components/admin/settings/main/SettingsContent";
+import UserManagementView from "@/components/admin/employee-management/views/UserManagementView";
+import SettingsContent from "@/components/admin/settings/views/SettingsView";
 import DepartmentsContent from "@/components/admin/departments/DepartmentsContent";
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const { user, mounted, logout } = useAuth();
   const { leaveRequests, loading } = useLeaveRequests();
   const searchParams = useSearchParams();
@@ -92,11 +92,26 @@ export default function AdminDashboard() {
           {activeTab === "Attendance" && <AttendanceContent />}
           {activeTab === "Leaves" && <LeavesContent searchQuery={searchQuery} />}
           {activeTab === "Reports" && <ReportsContent />}
-          {activeTab === "UserManagement" && <UserManagementContent />}
+          {activeTab === "UserManagement" && <UserManagementView />}
           {activeTab === "Departments" && <DepartmentsContent />}
           {activeTab === "Settings" && <SettingsContent />}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center font-['SF_Pro_Display',system-ui,sans-serif]">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   );
 }

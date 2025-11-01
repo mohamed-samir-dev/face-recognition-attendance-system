@@ -1,5 +1,10 @@
-export { default as AppLogo } from './AppLogo';
-export { default as PageHeader } from './PageHeader';
-export { default as Navbar } from './Navbar';
-export { default as AdminSidebar } from './AdminSidebar';
-export { default as AdminTopBar } from './AdminTopBar';
+// Navigation Components
+export { default as Navbar } from './navigation/Navbar';
+
+// Admin Components
+export { default as AdminSidebar } from './admin/AdminSidebar';
+export { default as AdminTopBar } from './admin/AdminTopBar';
+
+// Common Components
+export { default as AppLogo } from './common/AppLogo';
+export { default as PageHeader } from './common/PageHeader';

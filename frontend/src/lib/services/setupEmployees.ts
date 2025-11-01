@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase/config";
-import { collection, addDoc, doc, setDoc } from "firebase/firestore";
+import {doc, setDoc } from "firebase/firestore";
 
 interface Employee {
   name: string;

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
-import { useLeaveRequests } from "@/hooks/useLeaveRequests";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useLeaveRequests } from "@/hooks/leave/useLeaveRequests";
 import NavigationBlocker from "@/components/NavigationBlocker";
-import AdminSidebar from "@/components/layout/AdminSidebar";
-import AdminTopBar from "@/components/layout/AdminTopBar";
+import AdminSidebar from "@/components/layout/admin/AdminSidebar";
+import AdminTopBar from "@/components/layout/admin/AdminTopBar";
 import { AddEmployeeForm } from "@/components/admin";
 
 export default function AddEmployeePage() {

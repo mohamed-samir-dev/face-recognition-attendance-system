@@ -1,8 +1,8 @@
 "use client";
 
-import { useProfile } from "@/hooks/useProfile";
-import ProfileLayout from "@/components/profile/ProfileLayout";
-import ProfileSettingsForm from "@/components/profile/ProfileSettingsForm";
+import { useProfile } from "@/hooks/auth/useProfile";
+import { ProfileLayout } from "@/components/profile/layout";
+import { ProfileSettingsForm } from "@/components/profile/forms";
 
 export default function ProfilePage() {
   const { user, mounted, logout, handleDashboard, handleReports, handleSettings } = useProfile();

@@ -1,7 +1,7 @@
 "use client";
 
-import AppLogo from "@/components/layout/AppLogo";
-import PageHeader from "@/components/layout/PageHeader";
+import AppLogo from "@/components/layout/common/AppLogo";
+import PageHeader from "@/components/layout/common/PageHeader";
 
 interface LoginLayoutProps {
   children: React.ReactNode;

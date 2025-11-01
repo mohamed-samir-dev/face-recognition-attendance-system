@@ -1,10 +1,10 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
-import { useLeaveRequest } from "@/hooks/useLeaveRequest";
+import { useAuth } from "@/hooks/auth/useAuth";
+import { useLeaveRequest } from "@/hooks/leave/useLeaveRequest";
 import { useRouter } from "next/navigation";
-import LeaveRequestLayout from "@/components/leave/LeaveRequestLayout";
-import LeaveRequestForm from "@/components/leave/LeaveRequestForm";
+import LeaveRequestLayout from "@/components/leave/layouts/LeaveRequestLayout";
+import LeaveRequestForm from "@/components/leave/forms/LeaveRequestForm";
 
 export default function LeaveRequestPage() {
   const { user, mounted, logout } = useAuth();

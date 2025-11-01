@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, setDoc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-import { CompanySettings, Holiday, Department } from "@/lib/types";
+import { CompanySettings, Holiday, Department, User } from "@/lib/types";
 
 export const getCompanySettings = async (): Promise<CompanySettings> => {
   try {
@@ -79,7 +79,7 @@ export const deleteDepartment = async (departmentId: string): Promise<void> => {
   await deleteDoc(doc(db, "departments", departmentId));
 };
 
-export const getDepartmentEmployees = async (departmentName: string): Promise<any[]> => {
+export const getDepartmentEmployees = async (departmentName: string): Promise<User[]> => {
   try {
     const { getUsers } = await import('./userService');
     const users = await getUsers();
@@ -115,7 +115,7 @@ export const updateSettings = async (settings: Partial<CompanySettings>): Promis
   const settingsRef = doc(db, "settings", "company");
   try {
     await updateDoc(settingsRef, settings);
-  } catch (error) {
+  } catch {
     // If document doesn't exist, create it
     await setDoc(settingsRef, settings);
   }

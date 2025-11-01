@@ -1,4 +1,4 @@
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, setDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, setDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { LeaveRequest } from "@/lib/types";
 
@@ -41,7 +41,7 @@ export const updateLeaveRequestStatus = async (requestId: string, status: 'Pendi
       updatedAt: new Date().toISOString()
     });
     
-    // If approved, add to leave days taken collection
+    // If approved, add to leave days taken collection and update employee status
     if (status === 'Approved') {
       const leaveRequests = await getLeaveRequests();
       const request = leaveRequests.find(req => req.id === requestId);
@@ -58,11 +58,82 @@ export const updateLeaveRequestStatus = async (requestId: string, status: 'Pendi
           endDate: request.endDate,
           approvedAt: new Date().toISOString()
         });
+        
+        // Update employee status if leave is current
+        await updateEmployeeStatusForLeave(request.employeeId, request.startDate, request.endDate);
       }
     }
   } catch (error) {
     console.error("Error updating leave request status:", error);
     throw new Error("Failed to update leave request status");
+  }
+};
+
+const updateEmployeeStatusForLeave = async (employeeId: string, startDate: string, endDate: string): Promise<void> => {
+  try {
+    const today = new Date();
+    const leaveStart = new Date(startDate);
+    const leaveEnd = new Date(endDate);
+    
+    // If leave starts today or has already started, update status immediately
+    if (leaveStart <= today && today <= leaveEnd) {
+      const employeeRef = doc(db, "employees", employeeId);
+      const employeeDoc = await getDoc(employeeRef);
+      
+      if (employeeDoc.exists()) {
+        await updateDoc(employeeRef, {
+          status: "onleave",
+          statusUpdatedAt: new Date().toISOString()
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error updating employee status for leave:", error);
+  }
+};
+
+export const checkAndUpdateEmployeeStatuses = async (): Promise<void> => {
+  try {
+    const today = new Date();
+    const approvedLeaves = await getLeaveRequests();
+    const activeLeaves = approvedLeaves.filter(req => 
+      req.status === 'Approved' && 
+      new Date(req.startDate) <= today && 
+      today <= new Date(req.endDate)
+    );
+    
+    const expiredLeaves = approvedLeaves.filter(req => 
+      req.status === 'Approved' && 
+      new Date(req.endDate) < today
+    );
+    
+    // Set employees to onleave for active leaves
+    for (const leave of activeLeaves) {
+      const employeeRef = doc(db, "employees", leave.employeeId);
+      const employeeDoc = await getDoc(employeeRef);
+      
+      if (employeeDoc.exists()) {
+        await updateDoc(employeeRef, {
+          status: "onleave",
+          statusUpdatedAt: new Date().toISOString()
+        });
+      }
+    }
+    
+    // Set employees back to active for expired leaves
+    for (const leave of expiredLeaves) {
+      const employeeRef = doc(db, "employees", leave.employeeId);
+      const employeeDoc = await getDoc(employeeRef);
+      
+      if (employeeDoc.exists()) {
+        await updateDoc(employeeRef, {
+          status: "active",
+          statusUpdatedAt: new Date().toISOString()
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Error checking and updating employee statuses:", error);
   }
 };
 
@@ -81,8 +152,6 @@ export const deleteLeaveRequest = async (requestId: string): Promise<void> => {
     // Delete the leave request
     const requestRef = doc(db, "leaveRequests", requestId);
     await deleteDoc(requestRef);
-    
-    return request; // Return the request data for the component to handle UI updates
   } catch (error) {
     console.error("Error deleting leave request:", error);
     throw new Error("Failed to delete leave request");

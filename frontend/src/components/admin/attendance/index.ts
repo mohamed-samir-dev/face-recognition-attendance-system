@@ -1,3 +1,5 @@
-export { default as AttendanceContent } from './AttendanceContent';
-export { default as AttendanceOverview } from './AttendanceOverview';
-export { default as LeavesContent } from './LeavesContent';
+export { AttendanceContent, LeavesContent } from './content';
+export { AttendanceOverview } from './overview';
+export { AttendanceStatus, DepartmentAttendance } from './status';
+export { QuickActions } from './actions';
+export { AbsenceReasons } from './reasons';

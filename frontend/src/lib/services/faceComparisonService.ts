@@ -1,5 +1,5 @@
 import { db } from "@/lib/firebase/config";
-import { collection, getDocs, doc, getDoc } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 import { recognizeFace } from "@/utils/faceRecognition";
 
 interface Employee {

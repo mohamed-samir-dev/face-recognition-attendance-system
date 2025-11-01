@@ -1,3 +1,3 @@
-export { default as LoadingState } from './LoadingState';
-export { default as PageHeader } from './PageHeader';
-export { useDepartmentsContent } from './useDepartmentsContent';
+export { LoadingState } from './states';
+export { PageHeader } from './header';
+export { useDepartmentsContent } from './hooks';
